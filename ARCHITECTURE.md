@@ -12,6 +12,14 @@ The same Express app (`createApp(db)`) runs in three places: as a Vercel serverl
 
 **Why Vercel + Turso:** the first plan was Render's free tier as a single Docker service, but it sleeps after 15 minutes idle (a 30–60 s cold start for the next visitor) and its disk is ephemeral. That's a poor first impression for a reviewer. Vercel functions don't sleep in that way, but they also have no persistent disk, so the database had to move off the filesystem. Turso is hosted SQLite, so the schema and SQL stayed the same. The only code change was making data access async.
 
+**Why Turso over Neon (Postgres):** Neon was the main alternative, and for a larger product it's probably the better default: Postgres is the industry standard, has richer types and row-level locking, and offers `LISTEN/NOTIFY` as a natural basis for real-time collaboration later. I picked Turso for this timebox because:
+
+- **No query rewrite.** The app was already written for SQLite. With Turso the schema and every query ran unchanged. Neon would have meant reworking the schema, query parameters, `COLLATE NOCASE` and `INSERT OR IGNORE`, then re-checking every query.
+- **One database engine everywhere.** The same libSQL client runs a local file in dev, `:memory:` in tests, and Turso in prod. Tests run on the same engine as production, and reviewers can run the project with no database to install.
+- **Time spent where it shows.** The switch took about 15–20 minutes. Neon would have taken roughly 45 more, with no difference a reviewer would see.
+
+Moving to Postgres later is contained: SQL lives only in `server/db.ts`, `server/auth.ts`, `server/documents.ts` and `server/seed.ts`, behind the small `all` / `get` / `run` helpers.
+
 | Layer       | Choice                     | Why                                                                                                                                                    |
 | ----------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Editor      | TipTap 3 (ProseMirror)     | A schema-based editor, so formatting is structured rather than arbitrary `contentEditable` HTML. Toolbar, shortcuts and lists work out of the box.      |
