@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { RequestHandler } from "express";
-import type { DB } from "./db.js";
+import { get, run, type DB } from "./db.js";
 import { HttpError } from "./errors.js";
 
 export interface User {
@@ -34,34 +34,34 @@ export function verifyPassword(password: string, stored: string): boolean {
 // Only a hash of the session token is stored, so a leaked DB can't be replayed as cookies.
 const hashToken = (token: string) => crypto.createHash("sha256").update(token).digest("hex");
 
-export function createSession(db: DB, userId: number): { token: string; expires: Date } {
+export async function createSession(db: DB, userId: number): Promise<{ token: string; expires: Date }> {
   const token = crypto.randomBytes(32).toString("base64url");
   const expires = new Date(Date.now() + SESSION_TTL_MS);
-  db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").run(
+  await run(db, "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)", [
     hashToken(token),
     userId,
     expires.toISOString(),
-  );
+  ]);
   return { token, expires };
 }
 
-export function destroySession(db: DB, token: string | undefined) {
-  if (token) db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(hashToken(token));
+export async function destroySession(db: DB, token: string | undefined) {
+  if (token) await run(db, "DELETE FROM sessions WHERE token_hash = ?", [hashToken(token)]);
 }
 
-export function userForSession(db: DB, token: string | undefined): User | undefined {
-  if (!token) return undefined;
-  return db
-    .prepare(
-      `SELECT u.id, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token_hash = ? AND s.expires_at > ?`,
-    )
-    .get(hashToken(token), new Date().toISOString()) as User | undefined;
+export function userForSession(db: DB, token: string | undefined): Promise<User | undefined> {
+  if (!token) return Promise.resolve(undefined);
+  return get<User>(
+    db,
+    `SELECT u.id, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = ? AND s.expires_at > ?`,
+    [hashToken(token), new Date().toISOString()],
+  );
 }
 
 export function requireUser(db: DB): RequestHandler {
-  return (req, _res, next) => {
-    const user = userForSession(db, req.cookies?.[SESSION_COOKIE]);
+  return async (req, _res, next) => {
+    const user = await userForSession(db, req.cookies?.[SESSION_COOKIE]);
     if (!user) return next(new HttpError(401, "Please sign in"));
     req.user = user;
     next();

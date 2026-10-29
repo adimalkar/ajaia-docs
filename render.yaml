@@ -1,8 +1,0 @@
-# Render Blueprint: New > Blueprint > pick this repo. Free plan, Docker runtime.
-services:
-  - type: web
-    name: ajaia-docs
-    runtime: docker
-    plan: free
-    healthCheckPath: /api/health
-    autoDeploy: true

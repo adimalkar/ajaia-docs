@@ -27,7 +27,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   }
   if (err instanceof multer.MulterError) {
     const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
-    const message = err.code === "LIMIT_FILE_SIZE" ? "File is too large (max 5 MB)" : err.message;
+    const message = err.code === "LIMIT_FILE_SIZE" ? "File is too large (max 4 MB)" : err.message;
     res.status(status).json({ error: message });
     return;
   }

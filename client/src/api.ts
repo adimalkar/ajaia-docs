@@ -87,4 +87,4 @@ export const api = {
 };
 
 export const IMPORT_ACCEPT = ".txt,.md,.markdown,.docx";
-export const IMPORT_HINT = "Supports .txt, .md and .docx (up to 5 MB)";
+export const IMPORT_HINT = "Supports .txt, .md and .docx (up to 4 MB)";

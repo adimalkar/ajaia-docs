@@ -5,7 +5,8 @@ import { HttpError } from "./errors.js";
 import { sanitizeDocumentHtml } from "./sanitize.js";
 
 export const SUPPORTED_EXTENSIONS = [".txt", ".md", ".markdown", ".docx"] as const;
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+// Vercel caps serverless request bodies at 4.5 MB, so stay safely under it
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

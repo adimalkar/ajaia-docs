@@ -44,13 +44,13 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX
 export function documentRoutes(db: DB) {
   const router = Router();
 
-  router.get("/", (req, res) => {
-    res.json(listDocuments(db, req.user!.id));
+  router.get("/", async (req, res) => {
+    res.json(await listDocuments(db, req.user!.id));
   });
 
-  router.post("/", (req, res) => {
+  router.post("/", async (req, res) => {
     const body = createBody.parse(req.body ?? {});
-    res.status(201).json(createDocument(db, req.user!.id, body.title ?? DEFAULT_TITLE));
+    res.status(201).json(await createDocument(db, req.user!.id, body.title ?? DEFAULT_TITLE));
   });
 
   // Upload a .txt / .md / .docx file and turn it into a new editable document.
@@ -59,36 +59,36 @@ export function documentRoutes(db: DB) {
     // multer decodes multipart filenames as latin1; recover UTF-8 names
     const filename = Buffer.from(req.file.originalname, "latin1").toString("utf8");
     const html = await fileToHtml(filename, req.file.buffer);
-    res.status(201).json(createDocument(db, req.user!.id, titleFromFilename(filename), html));
+    res.status(201).json(await createDocument(db, req.user!.id, titleFromFilename(filename), html));
   });
 
-  router.get("/:id", (req, res) => {
-    res.json(getDocument(db, req.params.id, req.user!.id));
+  router.get("/:id", async (req, res) => {
+    res.json(await getDocument(db, req.params.id, req.user!.id));
   });
 
-  router.patch("/:id", (req, res) => {
+  router.patch("/:id", async (req, res) => {
     const body = updateBody.parse(req.body);
     const contentHtml = body.contentHtml === undefined ? undefined : sanitizeDocumentHtml(body.contentHtml);
-    res.json(updateDocument(db, req.params.id, req.user!.id, { ...body, contentHtml }));
+    res.json(await updateDocument(db, req.params.id, req.user!.id, { ...body, contentHtml }));
   });
 
-  router.delete("/:id", (req, res) => {
-    deleteDocument(db, req.params.id, req.user!.id);
+  router.delete("/:id", async (req, res) => {
+    await deleteDocument(db, req.params.id, req.user!.id);
     res.status(204).end();
   });
 
-  router.get("/:id/shares", (req, res) => {
-    res.json({ shares: listShares(db, req.params.id, req.user!.id) });
+  router.get("/:id/shares", async (req, res) => {
+    res.json({ shares: await listShares(db, req.params.id, req.user!.id) });
   });
 
-  router.post("/:id/shares", (req, res) => {
+  router.post("/:id/shares", async (req, res) => {
     const { email, role } = shareBody.parse(req.body);
-    res.json({ shares: shareDocument(db, req.params.id, req.user!.id, email, role) });
+    res.json({ shares: await shareDocument(db, req.params.id, req.user!.id, email, role) });
   });
 
-  router.delete("/:id/shares/:userId", (req, res) => {
+  router.delete("/:id/shares/:userId", async (req, res) => {
     const userId = z.coerce.number().int().parse(req.params.userId);
-    res.json({ shares: revokeShare(db, req.params.id, req.user!.id, userId) });
+    res.json({ shares: await revokeShare(db, req.params.id, req.user!.id, userId) });
   });
 
   return router;

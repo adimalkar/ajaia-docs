@@ -31,13 +31,14 @@ To test sharing, use two browsers (or one normal and one private window), one pe
 | `e2e/smoke.mjs`               | Two-user browser smoke test (Playwright)                                   |
 | `samples/`                    | Sample `.md`, `.txt`, `.docx` files to try the import feature              |
 | `docs/screenshots/`           | Screenshots of the main flows (captured by the smoke test)                 |
-| `Dockerfile`, `render.yaml`   | Container build and Render deployment blueprint                            |
+| `vercel.json`, `api/`         | Vercel deployment config and serverless function entry                     |
+| `Dockerfile`                  | Self-hosting alternative (single Node process)                             |
 | `package.json`, `package-lock.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts` | Build and tooling config |
 
 ## Status
 
-**Working end to end:** login with seeded users; create, rename, edit, autosave, reopen and delete documents; rich text (bold, italic, underline, strikethrough, H1–H3, bulleted and numbered lists, quotes, undo/redo); .txt/.md/.docx import into a new document; sharing by email with viewer/editor roles, role changes and revoke; separate "My documents" and "Shared with me" lists; conflict detection on concurrent edits; near-live updates for open documents; SQLite persistence; API and browser tests; Docker deployment.
+**Working end to end:** login with seeded users; create, rename, edit, autosave, reopen and delete documents; rich text (bold, italic, underline, strikethrough, H1–H3, bulleted and numbered lists, quotes, undo/redo); .txt/.md/.docx import into a new document; sharing by email with viewer/editor roles, role changes and revoke; separate "My documents" and "Shared with me" lists; conflict detection on concurrent edits; near-live updates for open documents; durable persistence on hosted SQLite (Turso); API and browser tests; Vercel deployment.
 
-**Incomplete or intentionally out of scope:** real-time co-editing (concurrent edits are detected and resolved, not merged); comments and version history; sign-up and password reset; images and tables; durable storage on the free hosting tier (data resets when the free instance restarts; see the README).
+**Incomplete or intentionally out of scope:** real-time co-editing (concurrent edits are detected and resolved, not merged); comments and version history; sign-up and password reset; images and tables; no CI pipeline yet.
 
-**Next 2–4 hours:** version history with restore, then an SSE push replacing polling plus presence, then Markdown/PDF export and import into an existing document, then a durable volume and CI. Details are in ARCHITECTURE.md.
+**Next 2–4 hours:** version history with restore, then an SSE push replacing polling plus presence, then Markdown/PDF export and import into an existing document, then CI. Details are in ARCHITECTURE.md.

@@ -1,6 +1,6 @@
-import Database from "better-sqlite3";
+import { createClient, type Client, type InArgs } from "@libsql/client";
 
-export type DB = Database.Database;
+export type DB = Client;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -38,11 +38,26 @@ CREATE TABLE IF NOT EXISTS document_shares (
 CREATE INDEX IF NOT EXISTS idx_shares_user ON document_shares(user_id);
 `;
 
-/** Opens (or creates) the SQLite database and applies the schema. Use ":memory:" in tests. */
-export function openDb(file: string): DB {
-  const db = new Database(file);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.exec(SCHEMA);
+/**
+ * Connects to SQLite through libSQL and applies the schema.
+ * `url` is a local file ("file:data/docs.db"), ":memory:" for tests, or a hosted
+ * Turso database ("libsql://…", with `authToken`) in production.
+ */
+export async function openDb(url: string, authToken?: string): Promise<DB> {
+  const db = createClient({ url, authToken });
+  await db.executeMultiple(SCHEMA);
   return db;
+}
+
+export async function all<T>(db: DB, sql: string, args: InArgs = []): Promise<T[]> {
+  return (await db.execute({ sql, args })).rows as unknown as T[];
+}
+
+export async function get<T>(db: DB, sql: string, args: InArgs = []): Promise<T | undefined> {
+  return (await all<T>(db, sql, args))[0];
+}
+
+export async function run(db: DB, sql: string, args: InArgs = []) {
+  const rs = await db.execute({ sql, args });
+  return { changes: rs.rowsAffected, lastInsertRowid: Number(rs.lastInsertRowid) };
 }

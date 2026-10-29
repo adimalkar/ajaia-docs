@@ -3,7 +3,7 @@ import path from "node:path";
 import cookieParser from "cookie-parser";
 import express from "express";
 import { requireUser } from "./auth.js";
-import type { DB } from "./db.js";
+import { all, type DB } from "./db.js";
 import { errorHandler, HttpError } from "./errors.js";
 import { authRoutes } from "./routes/auth.js";
 import { documentRoutes } from "./routes/documents.js";
@@ -24,9 +24,9 @@ export function createApp(db: DB, { clientDir, secureCookies = false }: AppOptio
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
   });
-  app.get("/api/users", requireUser(db), (_req, res) => {
+  app.get("/api/users", requireUser(db), async (_req, res) => {
     // Small internal directory used for share suggestions.
-    res.json({ users: db.prepare("SELECT id, name, email FROM users ORDER BY name").all() });
+    res.json({ users: await all(db, "SELECT id, name, email FROM users ORDER BY name") });
   });
   app.use("/api/auth", authRoutes(db, { secureCookies }));
   app.use("/api/documents", requireUser(db), documentRoutes(db));

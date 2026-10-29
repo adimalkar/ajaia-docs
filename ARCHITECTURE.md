@@ -3,19 +3,21 @@
 ## Shape
 
 ```
-Browser (React + TipTap)  ──fetch /api/*──▶  Express (one Node process)  ──▶  SQLite (better-sqlite3)
-        ▲                                         │
-        └──────── static client (Vite build) ◀────┘
+Browser (React + TipTap) ──▶ Vercel CDN: static client (Vite build)
+          │
+          └── fetch /api/* ──▶ Vercel function: Express app ──▶ Turso (hosted SQLite / libSQL)
 ```
 
-There is one deployable unit: a single Docker image runs one Node process that serves both the JSON API and the built SPA. This is the cheapest setup that is still a real full-stack app, and there's no CORS, no second service, and nothing for reviewers to pay for.
+The same Express app (`createApp(db)`) runs in three places: as a Vercel serverless function in production (`server/vercel.ts`), as a long-running process locally or in Docker (`server/index.ts`), and in-process in the tests. Only the database URL changes: a Turso URL in production, a local file in development, `:memory:` in tests. Everything is same-origin, so there's no CORS, and every service is on a free tier.
+
+**Why Vercel + Turso:** the first plan was Render's free tier as a single Docker service, but it sleeps after 15 minutes idle (a 30–60 s cold start for the next visitor) and its disk is ephemeral. That's a poor first impression for a reviewer. Vercel functions don't sleep in that way, but they also have no persistent disk, so the database had to move off the filesystem. Turso is hosted SQLite, so the schema and SQL stayed the same. The only code change was making data access async.
 
 | Layer       | Choice                     | Why                                                                                                                                                    |
 | ----------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Editor      | TipTap 3 (ProseMirror)     | A schema-based editor, so formatting is structured rather than arbitrary `contentEditable` HTML. Toolbar, shortcuts and lists work out of the box.      |
 | Client      | React 19 + Vite            | Fast to build and well known. Two routes (`/` and `/d/:id`).                                                                                           |
 | API         | Express 5 + zod            | Thin routes: validate, call a domain function, return JSON. Express 5 forwards async errors to one error handler.                                       |
-| Storage     | SQLite via better-sqlite3  | Zero-ops, file-based and transactional. Synchronous calls keep data-access code simple, and tests run against `:memory:`.                              |
+| Storage     | SQLite via libSQL (Turso)  | Real SQL with constraints and transactions. The same client talks to a local file, `:memory:` (tests) or hosted Turso (prod), with zero ops.          |
 | Auth        | Seeded users + session cookie | Real login with scrypt password hashes, httpOnly cookies and server-side sessions (only token hashes stored), but no sign-up flow. Enough to make ownership and sharing real. |
 
 ## Data model
@@ -36,7 +38,7 @@ document_shares(document_id → documents, user_id → users, role ∈ {viewer, 
 2. **One HTML allowlist** (`server/sanitize.ts`) runs on both import and save. It mirrors what the editor schema can represent (p, h1–h3, strong/em/u/s, lists, blockquote, code, links with http/https/mailto). Stored content therefore can't carry scripts or event handlers even if someone bypasses the UI and calls the API directly, and the database holds exactly what the editor renders.
 3. **Optimistic concurrency instead of real-time sync.** Each document has a `version`. Saves send `baseVersion`, and `UPDATE … WHERE version = ?` either applies or affects 0 rows, which becomes a `409`. The client's save queue (`useDocumentSaver`) keeps one request in flight at a time, merges keystrokes into a single pending patch, and on 409 stops autosaving and asks the user to load the other version or keep their own. A 4-second poll pulls in newer versions only when the local editor has nothing unsaved. This gives viewers near-live updates and makes role changes and revocations take effect without a reload.
    *Why not CRDT/WebSockets (Yjs + Hocuspocus)?* That is the right end state, but it brings a second protocol, presence, and document-state storage, which would mean at least half the timebox spent on one feature. The version check prevents the failure that actually matters (silently losing a colleague's work) for a fraction of the cost, and it is a clean stepping stone because the server-side document model doesn't change.
-4. **Import creates a new document.** I chose this over "attach to doc" or "merge into draft" because it's the clearest product story ("bring my existing doc in") and avoids a merge UI. Conversion happens server-side (`mammoth` for .docx, `marked` for .md, escaped paragraphs for .txt) so the browser never parses untrusted Office files. There is a 5 MB limit, and the file type is checked by extension and then by whether it actually parses: a corrupt .docx returns `422` with a human-readable message.
+4. **Import creates a new document.** I chose this over "attach to doc" or "merge into draft" because it's the clearest product story ("bring my existing doc in") and avoids a merge UI. Conversion happens server-side (`mammoth` for .docx, `marked` for .md, escaped paragraphs for .txt) so the browser never parses untrusted Office files. There is a 4 MB limit (Vercel caps request bodies at 4.5 MB), and the file type is checked by extension and then by whether it actually parses: a corrupt .docx returns `422` with a human-readable message.
 
 ## What I prioritized, and what I cut
 
@@ -52,7 +54,8 @@ document_shares(document_id → documents, user_id → users, role ∈ {viewer, 
 
 ## Known risks
 
-- **Hosting:** the free Render plan has an ephemeral disk, so data resets on redeploy or sleep. This is documented in the README. Fix: mount a volume at `/data`, with no code change.
+- **Serverless cold starts:** the first request on a cold Vercel instance opens the Turso connection and checks the schema and seed (typically well under a second). Seeding is idempotent, so concurrent cold starts can't duplicate demo data, and there is a test for this.
+- **Foreign keys:** hosted libSQL doesn't enforce `ON DELETE CASCADE` by default, so deleting a document removes its shares explicitly in one transaction.
 - **Polling cost:** one GET per open document every 4 s is fine at demo scale. At real scale, replace it with a WebSocket or SSE "version changed" push.
 - **Last-writer UX:** "Keep mine" overwrites the other person's version as a whole document; it does not merge.
 
@@ -63,4 +66,4 @@ With another 2–4 hours, in order:
 1. **Version history:** a `document_versions` table written on each save (or throttled), plus a side panel to view and restore. This closes the "Keep mine overwrote their work" gap.
 2. **Push instead of poll:** an SSE endpoint that broadcasts `{docId, version}`, plus a "Bob is editing" presence indicator.
 3. **Export to Markdown/PDF**, and **import into an existing document** at the cursor.
-4. **Durable hosting** (volume or managed Postgres) and a CI workflow running `npm test` and the E2E smoke test on each push.
+4. **CI:** a GitHub Actions workflow running `npm test`, the typecheck and the E2E smoke test against a Vercel preview deployment on each push.

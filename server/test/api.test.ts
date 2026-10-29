@@ -13,10 +13,20 @@ async function signIn(email: string) {
   return agent;
 }
 
-beforeEach(() => {
-  db = openDb(":memory:");
-  seedIfEmpty(db);
+beforeEach(async () => {
+  db = await openDb(":memory:");
+  await seedIfEmpty(db);
   app = createApp(db);
+});
+
+describe("seeding", () => {
+  it("is idempotent, so concurrent serverless cold starts don't duplicate demo data", async () => {
+    await Promise.all([seedIfEmpty(db), seedIfEmpty(db)]);
+    const alice = await signIn("alice@ajaia.test");
+    const { body } = await alice.get("/api/documents").expect(200);
+    expect(body.owned.map((d: { title: string }) => d.title)).toEqual(["Q3 Product Brief"]);
+    expect(body.shared.map((d: { title: string }) => d.title)).toEqual(["Design review notes"]);
+  });
 });
 
 describe("auth", () => {
@@ -70,6 +80,12 @@ describe("sharing and access control", () => {
     const bobId = (await bob.get("/api/auth/me")).body.user.id;
     await alice.delete(`/api/documents/${doc.id}/shares/${bobId}`).expect(200);
     await bob.get(`/api/documents/${doc.id}`).expect(404);
+
+    // Deleting removes the document and its shares
+    await alice.post(`/api/documents/${doc.id}/shares`).send({ email: "carol@ajaia.test", role: "viewer" }).expect(200);
+    await alice.delete(`/api/documents/${doc.id}`).expect(204);
+    await carol.get(`/api/documents/${doc.id}`).expect(404);
+    expect((await carol.get("/api/documents")).body.shared).toEqual([]);
   });
 
   it("rejects sharing with unknown users or with yourself", async () => {
@@ -142,6 +158,13 @@ describe("file import", () => {
       .attach("file", Buffer.from("Hello <world>\nline two\n\nSecond para"), "notes.txt")
       .expect(201);
     expect(body.contentHtml).toBe("<p>Hello &lt;world&gt;<br />line two</p><p>Second para</p>");
+  });
+
+  it("rejects files over the size limit", async () => {
+    const alice = await signIn("alice@ajaia.test");
+    const big = Buffer.alloc(4 * 1024 * 1024 + 1, "a");
+    const res = await alice.post("/api/documents/import").attach("file", big, "huge.txt").expect(413);
+    expect(res.body.error).toMatch(/max 4 MB/);
   });
 
   it("rejects unsupported and corrupt files with a clear message", async () => {

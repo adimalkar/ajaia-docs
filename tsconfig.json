@@ -11,5 +11,5 @@
     "esModuleInterop": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["client/src", "server", "vite.config.ts", "vitest.config.ts"]
+  "include": ["client/src", "server", "api", "vite.config.ts", "vitest.config.ts"]
 }
