@@ -1,4 +1,4 @@
-import { createClient, type Client, type InArgs } from "@libsql/client";
+import type { Client, InArgs } from "@libsql/client";
 
 export type DB = Client;
 
@@ -44,6 +44,10 @@ CREATE INDEX IF NOT EXISTS idx_shares_user ON document_shares(user_id);
  * Turso database ("libsql://…", with `authToken`) in production.
  */
 export async function openDb(url: string, authToken?: string): Promise<DB> {
+  // Hosted databases use the pure-JS HTTP client, so serverless bundles never need the native
+  // SQLite binary. Only local files and :memory: (dev, tests) load the native client.
+  const isLocal = url === ":memory:" || url.startsWith("file:");
+  const { createClient } = isLocal ? await import("@libsql/client") : await import("@libsql/client/web");
   const db = createClient({ url, authToken });
   await db.executeMultiple(SCHEMA);
   return db;
