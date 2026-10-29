@@ -1,0 +1,6 @@
+Standup notes - Tuesday
+
+Alice: finished the share dialog
+Bob: reviewing import edge cases
+
+Blockers: none. Plain text keeps paragraphs; single line breaks are preserved.
