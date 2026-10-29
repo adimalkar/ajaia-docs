@@ -49,6 +49,17 @@ export async function openDb(url: string, authToken?: string): Promise<DB> {
   return db;
 }
 
+/**
+ * Hosted database settings from the environment. Accepts our own names (TURSO_DATABASE_URL /
+ * TURSO_AUTH_TOKEN) and the names the Vercel Turso integration creates with prefix "TURSO"
+ * (TURSO_URL / TURSO_AUTH_TOKEN). Returns undefined when no hosted database is configured.
+ */
+export function hostedDbFromEnv(env = process.env): { url: string; authToken?: string } | undefined {
+  const url = env.TURSO_DATABASE_URL ?? env.TURSO_URL;
+  if (!url) return undefined;
+  return { url, authToken: env.TURSO_AUTH_TOKEN ?? env.TURSO_DATABASE_AUTH_TOKEN ?? env.TURSO_TOKEN };
+}
+
 export async function all<T>(db: DB, sql: string, args: InArgs = []): Promise<T[]> {
   return (await db.execute({ sql, args })).rows as unknown as T[];
 }

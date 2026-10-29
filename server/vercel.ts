@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createApp } from "./app.js";
-import { openDb } from "./db.js";
+import { hostedDbFromEnv, openDb } from "./db.js";
 import { seedIfEmpty } from "./seed.js";
 
 // Serverless entry: Vercel serves the static client itself, so the app only handles /api/*.
@@ -9,9 +9,12 @@ import { seedIfEmpty } from "./seed.js";
 let ready: Promise<ReturnType<typeof createApp>> | undefined;
 
 async function init() {
-  const url = process.env.TURSO_DATABASE_URL;
-  if (!url) throw new Error("TURSO_DATABASE_URL is not set");
-  const db = await openDb(url, process.env.TURSO_AUTH_TOKEN);
+  const hosted = hostedDbFromEnv();
+  if (!hosted) {
+    const seen = Object.keys(process.env).filter((k) => /TURSO|LIBSQL|DATABASE/.test(k));
+    throw new Error(`No database configured: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN (found: ${seen.join(", ") || "none"})`);
+  }
+  const db = await openDb(hosted.url, hosted.authToken);
   await seedIfEmpty(db);
   return createApp(db, { secureCookies: true });
 }
