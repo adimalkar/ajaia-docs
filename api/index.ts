@@ -15,7 +15,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     console.error(err);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    // TEMP diagnostics: include the startup error while debugging the first deploy
-    res.end(JSON.stringify({ error: "Server failed to start", detail: String((err as Error)?.stack ?? err) }));
+    // Details go to the Vercel function logs, not to the client
+    res.end(JSON.stringify({ error: "Server failed to start" }));
   }
 }

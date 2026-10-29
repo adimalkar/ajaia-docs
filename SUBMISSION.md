@@ -4,7 +4,7 @@
 
 ## Links
 
-- **Live app:** _LIVE_URL_
+- **Live app:** https://ajaia-docs-azure-xi.vercel.app
 - **Walkthrough video:** see [`VIDEO_URL.txt`](VIDEO_URL.txt)
 
 ## Test accounts
@@ -31,7 +31,7 @@ To test sharing, use two browsers (or one normal and one private window), one pe
 | `e2e/smoke.mjs`               | Two-user browser smoke test (Playwright)                                   |
 | `samples/`                    | Sample `.md`, `.txt`, `.docx` files to try the import feature              |
 | `docs/screenshots/`           | Screenshots of the main flows (captured by the smoke test)                 |
-| `vercel.json`, `api/`         | Vercel deployment config and serverless function entry                     |
+| `vercel.json`, `api/`, `scripts/` | Vercel deployment config, serverless function entry, esbuild bundling  |
 | `Dockerfile`                  | Self-hosting alternative (single Node process)                             |
 | `package.json`, `package-lock.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts` | Build and tooling config |
 

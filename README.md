@@ -2,7 +2,7 @@
 
 A lightweight collaborative document editor: create and format documents, import files, and share them with teammates as viewers or editors.
 
-**Live demo:** _LIVE_URL_ (Vercel + Turso: always on, data persists)
+**Live demo:** https://ajaia-docs-azure-xi.vercel.app (Vercel + Turso: always on, data persists)
 
 ## Demo accounts
 
@@ -63,10 +63,10 @@ npm run test:e2e     # browser smoke test against a running server (see below)
 
 ## Deployment
 
-**Production: Vercel + Turso (both free tiers, no card).** Vercel serves the built client from its CDN and runs the Express API as one serverless function ([`api/index.ts`](api/index.ts), which delegates to [`server/vercel.ts`](server/vercel.ts)). The data lives in a hosted Turso (libSQL) database, so nothing sleeps and data survives redeploys.
+**Production: Vercel + Turso (both free tiers, no card).** Vercel serves the built client from its CDN and runs the Express API as one serverless function. `npm run build:vercel` bundles [`server/vercel.ts`](server/vercel.ts) with esbuild ([`scripts/bundle-server.mjs`](scripts/bundle-server.mjs)), and [`api/index.ts`](api/index.ts) loads that bundle. Bundling is required because Vercel's runtime can't `require()` ES modules, and `sanitize-html` (CommonJS) depends on the ESM-only `htmlparser2`. The data lives in a hosted Turso (libSQL) database, so nothing sleeps and data survives redeploys.
 
-1. **Turso:** sign in at [turso.tech](https://turso.tech), create a database, then create a database token. Note the database URL (`libsql://….turso.io`) and the token.
-2. **Vercel:** Add New → Project → import this repo. [`vercel.json`](vercel.json) sets the build, output and rewrites. Add the environment variables `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`, then deploy.
+1. **Vercel:** Add New → Project → import this repo. [`vercel.json`](vercel.json) sets the build, output and rewrites.
+2. **Turso:** add the Turso integration when Vercel offers it (set the variable prefix to `TURSO`, no database branches), or create a database at [turso.tech](https://turso.tech) and set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` yourself. Put the database in the region nearest your functions (Vercel defaults to `iad1`, so US East / Virginia). Then deploy.
 3. The schema and demo accounts are created automatically on the first request.
 
 **Self-hosting alternative:** [`Dockerfile`](Dockerfile) runs the same app as one long-lived Node process using a local SQLite file at `/data` (mount a volume there), or Turso if the env vars are set.
@@ -84,7 +84,8 @@ server/            Express API (TypeScript)
   sanitize.ts      single HTML allowlist shared by import and save
   routes/          HTTP layer: validation (zod) → domain functions
   test/            API integration tests
-api/index.ts       Vercel function entry (re-exports server/vercel.ts)
+api/index.ts       Vercel function entry (loads the esbuild bundle of server/vercel.ts)
+scripts/           esbuild bundling for the Vercel function
 client/src/        React + TipTap SPA
   pages/           Login, Home (document lists), DocumentPage (editor)
   components/      Toolbar, ShareDialog, small UI primitives

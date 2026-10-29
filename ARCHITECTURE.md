@@ -63,6 +63,7 @@ document_shares(document_id → documents, user_id → users, role ∈ {viewer, 
 ## Known risks
 
 - **Serverless cold starts:** the first request on a cold Vercel instance opens the Turso connection and checks the schema and seed (typically well under a second). Seeding is idempotent, so concurrent cold starts can't duplicate demo data, and there is a test for this.
+- **Module formats on Vercel:** Vercel's runtime loader can't `require()` ES modules, which plain Node 22 allows. `sanitize-html` (CommonJS) requires `htmlparser2` 12 (ESM-only), so the server is bundled with esbuild at build time. Downgrading `sanitize-html` to avoid this was rejected, because versions ≤ 2.18.0 have known XSS advisories.
 - **Foreign keys:** hosted libSQL doesn't enforce `ON DELETE CASCADE` by default, so deleting a document removes its shares explicitly in one transaction.
 - **Polling cost:** one GET per open document every 4 s is fine at demo scale. At real scale, replace it with a WebSocket or SSE "version changed" push.
 - **Last-writer UX:** "Keep mine" overwrites the other person's version as a whole document; it does not merge.
